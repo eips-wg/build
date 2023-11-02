@@ -1,0 +1,71 @@
+name: Publish (Common)
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    name: Build Pages
+    runs-on: ubuntu-latest
+    permissions:
+      pages: read
+    steps:
+      - name: Fetch Pages Configuration
+        id: get_pages
+        uses: octokit/request-action@89697eb6635e52c6e1e5559f15b5c91ba5100cb0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          route: GET /repos/{owner}/{repo}/pages
+          owner: ${{ github.event.repository.owner.login }}
+          repo: ${{ github.event.repository.name }}
+
+      - name: Install Rust
+        run: |
+          rustup toolchain install 1.71.1 --profile minimal --no-self-update
+          rustup default 1.71.1
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
+
+      - name: Install Preprocessor
+        run: cargo install --locked --git https://github.com/eips-wg/preprocessor.git
+
+      - name: Install Zola
+        run: cargo install --locked --git https://github.com/getzola/zola.git --rev 7c6bdc1019dbfa1c59667dd6ba0cacf30774b41b
+
+      - name: Checkout EIP Repository
+        uses: actions/checkout@47fbe2df0ad0e27efb67a70beac3555f192b062f
+        with:
+          fetch-depth: 0
+
+      - name: Checkout Theme Repository
+        uses: actions/checkout@47fbe2df0ad0e27efb67a70beac3555f192b062f
+        with:
+          repository: eips-wg/theme
+          path: themes/eips-theme
+
+      - name: Preprocess
+        run: eips-zola content
+
+      - name: Build
+        run: zola --config ".wg/zola.toml" build -o "_site" --drafts --base-url "${{ fromJSON(steps.get_pages.outputs.data).html_url }}"
+
+      - name: Upload Artifact
+        id: artifact
+        uses: actions/upload-pages-artifact@a753861a5debcf57bf8b404356158c8e1e33150c
+
+  publish:
+    name: Publish Pages
+    runs-on: ubuntu-latest
+    needs: build
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Publish Pages
+        id: deployment
+        uses: actions/deploy-pages@9dbe3824824f8a1377b8e298bafde1a50ede43e5
