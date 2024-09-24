@@ -43,13 +43,17 @@ jobs:
 
       - name: Checkout (Content)
         uses: ./build/.github/actions/checkout-eips
+        with:
+          path: work
 
       - name: Get Changed Files
         id: changed
+        working-directory: work
         run: |
+          set -euo pipefail
           echo "CHANGED_FILES<<EOF" >> $GITHUB_ENV
-          gh pr diff ${{ github.event.number }} --name-only | sed -e 's|$|,|' | xargs -i echo "{}" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          gh pr diff ${{ github.event.number }} --name-only | grep '\.md$' | sed 's@^@work/@' | tr '\n' ' ' >> $GITHUB_ENV
+          echo -e "\nEOF" >> $GITHUB_ENV
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -57,9 +61,9 @@ jobs:
         uses: codespell-project/actions-codespell@406322ec52dd7b488e48c1c4b82e2a8b3a1bf630
         with:
           check_filenames: true
-          ignore_words_file: config/codespell-whitelist
+          ignore_words_file: build/config/codespell-whitelist
           path: ${{ env.CHANGED_FILES }}
-          skip: .git,**/*.png,**/*.gif,**/*.jpg,**/*.svg
+          skip: .git,**/*.png,**/*.gif,**/*.jpg,**/*.svg,**/*.pdf
 
   eipw-validator:
     name: EIP Validator (eipw)
@@ -74,6 +78,8 @@ jobs:
 
       - name: Checkout (Content)
         uses: ./build/.github/actions/checkout-eips
+        with:
+          path: work
 
       - uses: ethereum/eipw-action@6785fa283773db4819cb0abf17a185a1d9b6eb9f
         name: Validate
@@ -82,7 +88,11 @@ jobs:
           token: ${{ secrets.GITHUB_TOKEN }}
           unchecked: 1, 5069, 5757
           options-file: build/config/eipw.toml
-          path: content/
+          path: work/content/
+
+      - run: |
+          echo "TODO: eipw doesn't correctly discover changed files."
+          exit 1
 
   markdownlint:
     name: Markdown Linter
@@ -96,12 +106,16 @@ jobs:
 
       - name: Checkout (Content)
         uses: ./build/.github/actions/checkout-eips
+        with:
+          path: work
 
       - name: Get Changed Files
         id: changed
+        working-directory: work
         run: |
+          set -euo pipefail
           echo "CHANGED_FILES<<EOF" >> $GITHUB_ENV
-          gh pr diff ${{ github.event.number }} --name-only | grep -E -x '.*\.md' >> $GITHUB_ENV
+          gh pr diff ${{ github.event.number }} --name-only | grep '\.md$' | sed 's@^@work/@' >> $GITHUB_ENV
           echo "EOF" >> $GITHUB_ENV
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -109,6 +123,6 @@ jobs:
       - name: Markdown Lint
         uses: DavidAnson/markdownlint-cli2-action@db43aef879112c3119a410d69f66701e0d530809
         with:
-          config: config/markdownlint.yaml
+          config: ./build/config/config.markdownlint.yaml
           globs: |
             ${{ env.CHANGED_FILES }}
