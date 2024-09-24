@@ -22,8 +22,8 @@ jobs:
 
       - name: Install Rust
         run: |
-          rustup toolchain install 1.71.1 --profile minimal --no-self-update
-          rustup default 1.71.1
+          rustup toolchain install 1.80.0 --profile minimal --no-self-update
+          rustup default 1.80.0
 
       - name: Rust Cache
         uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
@@ -32,7 +32,7 @@ jobs:
         run: cargo install --locked --git https://github.com/eips-wg/preprocessor.git
 
       - name: Install Zola
-        run: cargo install --locked --git https://github.com/getzola/zola.git --rev 7c6bdc1019dbfa1c59667dd6ba0cacf30774b41b
+        run: cargo install --locked --git https://github.com/getzola/zola.git --rev a152397f6b90120627ef8a801f2cc27e172d5192
 
       - name: Checkout EIP Repository
         uses: actions/checkout@47fbe2df0ad0e27efb67a70beac3555f192b062f
