@@ -65,6 +65,39 @@ jobs:
           path: ${{ env.CHANGED_FILES }}
           skip: .git,**/*.png,**/*.gif,**/*.jpg,**/*.svg,**/*.pdf
 
+  render:
+    name: Render
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Fetch Pages Configuration
+        id: get_pages
+        uses: octokit/request-action@89697eb6635e52c6e1e5559f15b5c91ba5100cb0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          route: GET /repos/{owner}/{repo}/pages
+          owner: ${{ github.event.repository.owner.login }}
+          repo: ${{ github.event.repository.name }}
+
+      - name: Checkout (Build)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+        with:
+          repository: eips-wg/build
+          path: build
+
+      - name: Checkout (Content)
+        uses: ./build/.github/actions/checkout-eips
+        with:
+          path: work
+
+      - name: Render
+        uses: ./build/.github/actions/render-eips
+        with:
+          base-url: "${{ fromJSON(steps.get_pages.outputs.data).html_url }}"
+          root: work
+          config: ./build/config/zola.toml
+
   eipw-validator:
     name: EIP Validator (eipw)
     runs-on: ubuntu-latest
