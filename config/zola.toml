@@ -21,13 +21,14 @@ taxonomies = [
 generate_feeds = true
 
 [link_checker]
-# TODO: Fix internal links.
-internal_level = "warn"
+internal_level = "error"
 
 [markdown]
 # Whether to do syntax highlighting
 # Theme can be customised by setting the `highlight_theme` variable to a theme supported by Zola
 highlight_code = true
+
+error_on_missing_highlight = true
 
 highlight_theme = "css"
 
@@ -37,28 +38,14 @@ highlight_themes_css = [
 ]
 
 extra_syntaxes_and_themes = [
-    "../themes/eips-theme/syntaxes/solidity"
+    "../syntaxes/solidity",
+    "../syntaxes/abnf",
+    "../syntaxes/csl-json",
 ]
 
 bottom_footnotes = true
 
 [extra]
-
-[[extra.working_groups]]
-name = "Core"
-url = "https://core.eips.fyi/"
-
-[[extra.working_groups]]
-name = "ERCs"
-url = "https://ercs.eips.fyi/"
-
-[[extra.working_groups]]
-name = "Governance"
-url = "https://eips.eips.fyi/"
-
-[[extra.working_groups]]
-name = "Wallets"
-url = "https://wallets.eips.fyi/"
 
 [extra.github]
 repository_url = "https://github.com/eips-wg/@@slug@@"

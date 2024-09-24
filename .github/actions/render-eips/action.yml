@@ -1,0 +1,46 @@
+name: 'Render EIPs'
+
+description: 'Preprocesses then renders EIPs'
+
+inputs:
+  base-url:
+    description: 'The base URL to pass to Zola while rendering'
+    required: true
+  root:
+    description: 'Workspace-Relative path to the Zola root'
+    required: true
+    default: './'
+  config:
+    description: 'Workspace-Relative path to the Zola configuration file'
+    required: true
+
+runs:
+  using: "composite"
+  steps:
+      - name: Install Rust
+        shell: bash
+        run: |
+          rustup toolchain install 1.80.0 --profile minimal --no-self-update
+          rustup default 1.80.0
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@96a8d65dbafbc7d145a9b2b6c3b12ee335738cd2
+
+      - name: Install Preprocessor
+        shell: bash
+        run: cargo install --locked --git https://github.com/eips-wg/preprocessor.git
+
+      - name: Install Zola
+        shell: bash
+        run: cargo install --locked --git https://github.com/getzola/zola.git --rev a152397f6b90120627ef8a801f2cc27e172d5192
+
+      - name: Preprocess EIPs
+        shell: bash
+        working-directory: ${{ inputs.root }}
+        run: eips-zola content/
+
+      - name: Render EIPs
+        shell: bash
+        working-directory: ${{ inputs.root }}
+        run: |
+          zola --config "${{ github.workspace }}/${{ inputs.config }}" build -o "_site" --drafts --base-url "${{ inputs.base-url }}"

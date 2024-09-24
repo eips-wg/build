@@ -1,0 +1,62 @@
+name: 'Checkout EIPs'
+
+description: 'Checks out and merges all repositories with EIPs'
+
+inputs:
+  path:
+    description: 'Relative path to place the repository'
+    required: true
+    default: './'
+
+runs:
+  using: "composite"
+  steps:
+    - name: Setup
+      id: checkout-eips-setup
+      shell: bash
+      run: |
+        set -euo pipefail
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "build@build.invalid"
+
+        SCRIPT="$(mktemp)"
+        cat <<'EOF' >> "$SCRIPT"
+        set -euo pipefail
+        # TODO: Replace subtree-based approach with "git commit-tree" if this
+        #       becomes problematic.
+        git subtree add --prefix="$1" "${{ github.server_url }}/eips-wg/$1.git" master
+        shopt -s dotglob
+        mkdir -p content
+        git rm "$1/content/LICENSE.md" "$1/content/.gitignore"
+        git mv "$1"/content/* content/
+        git rm -rf "$1"
+        git commit --amend --no-edit
+        EOF
+
+        echo "SCRIPT=$SCRIPT" >> "$GITHUB_OUTPUT"
+
+    - name: Checkout
+      uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+      with:
+        path: ${{ inputs.path }}
+
+    - name: Combine EIPs
+      if: ${{ github.repository != 'eips-wg/EIPs' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        SCRIPT: ${{ steps.checkout-eips-setup.outputs.SCRIPT }}
+      run: bash -x "$SCRIPT" EIPs
+
+    - name: Combine ERCs
+      if: ${{ github.repository != 'eips-wg/ERCs' }}
+      shell: bash
+      working-directory: ${{ inputs.path }}
+      env:
+        SCRIPT: ${{ steps.checkout-eips-setup.outputs.SCRIPT }}
+      run: bash -x "$SCRIPT" ERCs
+
+    - uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+      with:
+        repository: eips-wg/theme
+        path: ${{ inputs.path }}/themes/eips-theme

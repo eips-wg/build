@@ -20,40 +20,29 @@ jobs:
           owner: ${{ github.event.repository.owner.login }}
           repo: ${{ github.event.repository.name }}
 
-      - name: Install Rust
-        run: |
-          rustup toolchain install 1.80.0 --profile minimal --no-self-update
-          rustup default 1.80.0
-
-      - name: Rust Cache
-        uses: Swatinem/rust-cache@3cf7f8cc28d1b4e7d01e3783be10a97d55d483c8
-
-      - name: Install Preprocessor
-        run: cargo install --locked --git https://github.com/eips-wg/preprocessor.git
-
-      - name: Install Zola
-        run: cargo install --locked --git https://github.com/getzola/zola.git --rev a152397f6b90120627ef8a801f2cc27e172d5192
-
-      - name: Checkout EIP Repository
-        uses: actions/checkout@47fbe2df0ad0e27efb67a70beac3555f192b062f
+      - name: Checkout (Build)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
         with:
-          fetch-depth: 0
+          repository: eips-wg/build
+          path: build
 
-      - name: Checkout Theme Repository
-        uses: actions/checkout@47fbe2df0ad0e27efb67a70beac3555f192b062f
+      - name: Checkout (Content)
+        uses: ./build/.github/actions/checkout-eips
         with:
-          repository: eips-wg/theme
-          path: themes/eips-theme
+          path: work
 
-      - name: Preprocess
-        run: eips-zola content
-
-      - name: Build
-        run: zola --config ".wg/zola.toml" build -o "_site" --drafts --base-url "${{ fromJSON(steps.get_pages.outputs.data).html_url }}"
+      - name: Render
+        uses: ./build/.github/actions/render-eips
+        with:
+          base-url: "${{ fromJSON(steps.get_pages.outputs.data).html_url }}"
+          root: work
+          config: ./build/config/zola.toml
 
       - name: Upload Artifact
         id: artifact
-        uses: actions/upload-pages-artifact@a753861a5debcf57bf8b404356158c8e1e33150c
+        uses: actions/upload-pages-artifact@56afc609e74202658d3ffba0e8f6dda462b719fa
+        with:
+          path: work/_site
 
   publish:
     name: Publish Pages
@@ -68,4 +57,4 @@ jobs:
     steps:
       - name: Publish Pages
         id: deployment
-        uses: actions/deploy-pages@9dbe3824824f8a1377b8e298bafde1a50ede43e5
+        uses: actions/deploy-pages@d6db90164ac5ed86f2b6aed7e0febac5b3c0c03e
