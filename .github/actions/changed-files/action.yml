@@ -1,0 +1,83 @@
+name: 'Changed Files'
+description: 'Lists changed files in the current pull request'
+
+inputs:
+  patterns:
+    description: Regular expressions used to filter changed paths
+    required: false
+    default: ""
+outputs:
+  changed-files:
+    description: Files changed, newline separated
+    value: ${{ steps.set-result.outputs.result }}
+  any-changed:
+    description: "'true' if any files were changed"
+    value: ${{ steps.set-result.outputs.any-changed }}
+
+runs:
+  using: "composite"
+  steps:
+    - name: Script
+      uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea
+      id: set-result
+      env:
+        PATTERNS: ${{ inputs.patterns }}
+      with:
+        result-encoding: string
+        script: |
+          //
+          // Prepare Regular Expressions
+          //
+          let patterns_text = process.env["PATTERNS"].trim();
+          let patterns = [];
+          if (patterns_text != "") {
+            patterns = patterns_text
+              .split("\n")
+              .filter(a => a.length)
+              .map(a => new RegExp(a));
+          }
+
+          //
+          // Fetch Files from Pull Request
+          //
+          const opts = {
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            pull_number: context.payload.pull_request.number,
+          };
+          const fetched = await github.paginate(github.rest.pulls.listFiles, opts);
+
+          if (fetched.length >= 1000) {
+            // 3000 is the hard limit for the listFiles endpoint, but we
+            // shouldn't ever get close to that.
+            throw new Error("too many files changed");
+          }
+
+          //
+          // Apply Filters
+          //
+          const changed = [];
+          for (const entry of fetched) {
+            if (entry.status === "removed") {
+              continue;
+            }
+            if (entry.filename.indexOf("\n") !== -1) {
+              throw new Error("path contains a newline");
+            }
+            if (!patterns.length) {
+              changed.push(entry.filename);
+              continue;
+            }
+            for (const pattern of patterns) {
+              if (pattern.test(entry.filename)) {
+                changed.push(entry.filename);
+                break;
+              }
+            }
+          }
+
+          //
+          // Return Results
+          //
+          core.setOutput("any-changed", changed.length > 0);
+          return changed.join("\n");

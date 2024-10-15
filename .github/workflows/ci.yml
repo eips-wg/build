@@ -35,35 +35,50 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout (Content)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
       - name: Checkout (Build)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
         with:
           repository: eips-wg/build
           path: build
 
-      - name: Checkout (Content)
-        uses: ./build/.github/actions/checkout-eips
-        with:
-          path: work
-
       - name: Get Changed Files
-        id: changed
-        working-directory: work
-        run: |
-          set -euo pipefail
-          echo "CHANGED_FILES<<EOF" >> $GITHUB_ENV
-          gh pr diff ${{ github.event.number }} --name-only | grep '\.md$' | sed 's@^@work/@' | tr '\n' ' ' >> $GITHUB_ENV
-          echo -e "\nEOF" >> $GITHUB_ENV
+        id: changed-files
+        uses: ./build/.github/actions/changed-files
+        with:
+          patterns: |
+            ^content/.+\.md$
+
+      - name: Filter File Names
+        # Have to remove any weird filenames.
+        # See https://github.com/codespell-project/actions-codespell/issues/79.
+        id: filter-files
+        shell: python
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FILES: ${{ steps.changed-files.outputs.changed-files }}
+        run: |
+          import shlex, os
+          paths = os.environ["FILES"].split("\n")
+          text = " ".join(x for x in paths if shlex.quote(x) == x)
+          if "\n" in text:
+            raise ValueError("newline in paths")
+          with open(os.environ["GITHUB_OUTPUT"], "w") as f:
+            if text == "EOF":
+              f.write("escaped=EOF\n")
+            else:
+              f.write("escaped<<EOF\n")
+              f.write(text)
+              f.write("\nEOF\n")
 
       - name: Run CodeSpell
+        if: steps.changed-files.outputs.any-changed == 'true'
         uses: codespell-project/actions-codespell@406322ec52dd7b488e48c1c4b82e2a8b3a1bf630
         with:
           check_filenames: true
           ignore_words_file: build/config/codespell-whitelist
-          path: ${{ env.CHANGED_FILES }}
-          skip: .git,**/*.png,**/*.gif,**/*.jpg,**/*.svg,**/*.pdf
+          path: ${{ steps.filter-files.outputs.escaped }}
 
   render:
     name: Render
@@ -131,31 +146,25 @@ jobs:
     name: Markdown Linter
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout (Content)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
+
       - name: Checkout (Build)
         uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332
         with:
           repository: eips-wg/build
           path: build
 
-      - name: Checkout (Content)
-        uses: ./build/.github/actions/checkout-eips
-        with:
-          path: work
-
       - name: Get Changed Files
-        id: changed
-        working-directory: work
-        run: |
-          set -euo pipefail
-          echo "CHANGED_FILES<<EOF" >> $GITHUB_ENV
-          gh pr diff ${{ github.event.number }} --name-only | grep '\.md$' | sed 's@^@work/@' >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        id: changed-files
+        uses: ./build/.github/actions/changed-files
+        with:
+          patterns: |
+            ^content/.+\.md$
 
       - name: Markdown Lint
+        if: steps.changed-files.outputs.any-changed == 'true'
         uses: DavidAnson/markdownlint-cli2-action@db43aef879112c3119a410d69f66701e0d530809
         with:
           config: ./build/config/config.markdownlint.yaml
-          globs: |
-            ${{ env.CHANGED_FILES }}
+          globs: ${{ steps.changed-files.outputs.changed-files }}
