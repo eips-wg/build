@@ -77,7 +77,7 @@ jobs:
         uses: codespell-project/actions-codespell@406322ec52dd7b488e48c1c4b82e2a8b3a1bf630
         with:
           check_filenames: true
-          ignore_words_file: build/config/codespell-whitelist
+          ignore_words_file: ./build/config/codespell-whitelist
           path: ${{ steps.filter-files.outputs.escaped }}
 
   render:
@@ -129,14 +129,14 @@ jobs:
         with:
           path: work
 
-      - uses: ethereum/eipw-action@6785fa283773db4819cb0abf17a185a1d9b6eb9f
+      - uses: ethereum/eipw-action@070801632e9f9196e23e25df10ab88e72f6e799b
         name: Validate
-        id: eipw-global
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           unchecked: 1, 5069, 5757
           options-file: build/config/eipw.toml
-          path: work/content/
+          working-directory: work/
+          include: "content/+([[:digit:]]){/index,}.md"
 
       - run: |
           echo "TODO: eipw doesn't correctly discover changed files."
