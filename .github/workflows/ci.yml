@@ -129,18 +129,26 @@ jobs:
         with:
           path: work
 
+      - name: Prohibit Ignored Files
+        working-directory: work
+        run: |
+          FOUND="$(git ls-files -i -c --exclude-standard | head -c1 | wc -c)"
+          MESSAGE='The file `%` is marked as git ignored. Please remove it.'
+          if [[ "$FOUND" -ne 0 ]]; then
+            git ls-files -z -i -c --exclude-standard \
+              | xargs -0 -r -I '%' echo "::error file=%::$MESSAGE";
+            exit 1;
+          fi
+
       - uses: ethereum/eipw-action@070801632e9f9196e23e25df10ab88e72f6e799b
         name: Validate
+        if: always()
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           unchecked: 1, 5069, 5757
           options-file: build/config/eipw.toml
           working-directory: work/
           include: "content/+([[:digit:]]){/index,}.md"
-
-      - run: |
-          echo "TODO: eipw doesn't correctly discover changed files."
-          exit 1
 
   markdownlint:
     name: Markdown Linter
